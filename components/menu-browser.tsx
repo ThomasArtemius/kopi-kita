@@ -1,0 +1,51 @@
+"use client";
+
+import { useState } from "react";
+import ProductCard from "@/components/product-card";
+import { menuData, type MenuCategory } from "@/lib/menu-data";
+
+type FilterKey = "semua" | MenuCategory;
+
+const tabs: { key: FilterKey; label: string }[] = [
+  { key: "semua", label: "Semua" },
+  { key: "kopi", label: "Kopi" },
+  { key: "non-kopi", label: "Non-Kopi" },
+  { key: "pastry", label: "Pastry" },
+];
+
+export default function MenuBrowser() {
+  const [activeTab, setActiveTab] = useState<FilterKey>("semua");
+
+  const filteredMenu =
+    activeTab === "semua"
+      ? menuData
+      : menuData.filter((item) => item.category === activeTab);
+
+  return (
+    <>
+      <div className="mb-10 flex flex-wrap justify-center gap-3">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            aria-pressed={activeTab === tab.key}
+            className={`rounded-full px-5 py-2 text-sm font-semibold transition-colors ${
+              activeTab === tab.key
+                ? "bg-espresso text-cream"
+                : "border border-espresso/10 bg-white/60 text-espresso/70 hover:bg-accent/10"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+        {filteredMenu.map((item) => (
+          <ProductCard key={item.id} item={item} />
+        ))}
+      </div>
+    </>
+  );
+}

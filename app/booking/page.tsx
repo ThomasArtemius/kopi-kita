@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import BookingForm from "@/components/booking-form";
+
+export const metadata: Metadata = {
+  title: "Booking Meja",
+  description:
+    "Booking meja di Kopi Kita — isi form untuk mengamankan tempatmu.",
+};
 
 export default function BookingPage() {
   return (

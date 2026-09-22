@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kopi Kita",
+  title: {
+    default: "Kopi Kita",
+    template: "%s | Kopi Kita",
+  },
   description:
     "Kopi Kita — coffee shop dengan menu andalan dan booking meja online.",
 };
