@@ -16,6 +16,19 @@
 
 Proyek ini dibuat untuk membantu coffee shop lokal mempunyai kehadiran online yang profesional, mempermudah pelanggan dalam melihat menu dan memesan meja, serta menyederhanakan proses pengelolaan produk dan reservasi bagi pemilik usaha.
 
+## Teknologi
+
+Dibangun dengan [Next.js](https://nextjs.org) (App Router), TypeScript, dan Tailwind CSS.
+
+## Menjalankan Secara Lokal
+
+```bash
+npm install
+npm run dev
+```
+
+Buka [http://localhost:3000](http://localhost:3000) di browser untuk melihat hasilnya.
+
 ## Status
 
 Proyek masih dalam tahap pengembangan awal.
