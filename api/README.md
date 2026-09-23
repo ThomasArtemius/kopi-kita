@@ -47,17 +47,17 @@ masuk), `admins = 1`.
 - Email: `admin@kopikita.id`
 - Password: `kopikita-admin`
 
-Password disimpan ter-hash (bcrypt via `pgcrypto`), bukan plain text.
-`POST /api/admin/login` memverifikasinya lewat `crypt(input_password,
-password_hash) = password_hash` langsung di query SQL.
+Password disimpan ter-hash (bcrypt via `pgcrypto` saat seeding).
+`POST /api/auth/login` memverifikasinya dengan `bcrypt.compare` (package
+`bcryptjs`) — hash `$2a$...` dari `pgcrypto` kompatibel dengan bcrypt standar.
 
 ## Menjalankan server API
 
 ```bash
 cd api
-cp .env.example .env   # lalu isi JWT_SECRET dengan string acak sendiri
+cp .env.example .env
 npm install
-npm run dev             # tsx watch, auto-restart — jalan di http://localhost:4000
+npm run dev   # tsx watch, auto-restart — jalan di http://localhost:4000
 ```
 
 ## Endpoint
@@ -71,27 +71,45 @@ npm run dev             # tsx watch, auto-restart — jalan di http://localhost:
 | `POST /api/bookings` | buat booking | publik |
 | `GET /api/bookings` | daftar booking, urut tanggal+jam terdekat | admin |
 | `PATCH /api/bookings/:id` | ubah status booking | admin |
-| `POST /api/admin/login` | login admin, balas JWT | publik |
+| `POST /api/auth/login` | login admin, set cookie session | publik |
+| `POST /api/auth/logout` | hapus session + cookie | admin |
+| `GET /api/auth/me` | data admin yang sedang login | admin |
 
-Endpoint "admin" butuh header `Authorization: Bearer <token>` — token
-didapat dari `POST /api/admin/login`, berlaku 8 jam.
+## Autentikasi admin (session cookie)
 
-Contoh:
+Login menyimpan session di **Map di memori** (`api/src/sessionStore.ts`) dan
+mengirim id session lewat cookie `httpOnly` bernama `kopikita_session`
+(berlaku 8 jam). Endpoint "admin" di tabel atas dijaga middleware
+`requireAdmin` yang membaca cookie ini.
+
+> Catatan: penyimpanan session di Map cukup untuk pengembangan lokal —
+> sessionnya hilang tiap server di-restart dan tidak terbagi kalau nanti
+> jalan lebih dari satu instance. Pindahkan ke tabel database (atau Redis)
+> sebelum deploy ke production.
+
+Karena pakai cookie lintas port (frontend `:3000`, API `:4000`), request dari
+browser/fetch harus menyertakan `credentials: "include"`, dan server sudah
+diset `cors({ credentials: true })` untuk mengizinkannya.
+
+Contoh alur lewat curl (`-c`/`-b` menyimpan & mengirim ulang cookie):
 
 ```bash
-# Login, ambil token
-TOKEN=$(curl -s -X POST http://localhost:4000/api/admin/login \
+# Login — simpan cookie ke file
+curl -c cookies.txt -X POST http://localhost:4000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@kopikita.id","password":"kopikita-admin"}' \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
+  -d '{"email":"admin@kopikita.id","password":"kopikita-admin"}'
 
-# Pakai token untuk endpoint admin-only
-curl http://localhost:4000/api/bookings -H "Authorization: Bearer $TOKEN"
+# Pakai cookie untuk endpoint admin-only
+curl -b cookies.txt http://localhost:4000/api/bookings
+curl -b cookies.txt http://localhost:4000/api/auth/me
+
+# Logout
+curl -b cookies.txt -X POST http://localhost:4000/api/auth/logout
 ```
 
 ### Kode status
 
 - `400` — input tidak valid (field kosong/salah format)
-- `401` — belum login / token tidak ada / token salah-kedaluwarsa / kredensial login salah
+- `401` — belum login / cookie session tidak ada / sesi kedaluwarsa / kredensial login salah
 - `404` — data atau route tidak ditemukan
 - `500` — error server

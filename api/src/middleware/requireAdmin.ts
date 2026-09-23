@@ -1,40 +1,28 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import { ApiError } from "../errors.js";
-
-export interface AdminPayload {
-  sub: number;
-  email: string;
-}
+import { getSession, SESSION_COOKIE_NAME } from "../sessionStore.js";
 
 export interface AuthedRequest extends Request {
-  admin?: AdminPayload;
+  admin?: { id: number; email: string };
 }
 
 /**
- * Gerbang untuk endpoint admin-only. Cek header
- * "Authorization: Bearer <token>", verifikasi JWT-nya, lalu tempel
- * payload admin ke req.admin. Token didapat dari POST /api/admin/login.
+ * Gerbang untuk endpoint admin-only. Baca cookie session (di-set oleh
+ * POST /api/auth/login), cari di session store, tempel data admin ke
+ * req.admin kalau valid.
  */
 export function requireAdmin(req: AuthedRequest, _res: Response, next: NextFunction) {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    throw new ApiError(401, "Butuh login admin (header Authorization: Bearer <token>)");
+  const sessionId: string | undefined = req.cookies?.[SESSION_COOKIE_NAME];
+
+  if (!sessionId) {
+    throw new ApiError(401, "Belum login sebagai admin");
   }
 
-  const token = header.slice("Bearer ".length).trim();
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    // Kesalahan konfigurasi server, bukan kesalahan client -> biarkan
-    // error handler pusat menangkapnya sebagai 500.
-    throw new Error("JWT_SECRET belum diset di .env");
+  const session = getSession(sessionId);
+  if (!session) {
+    throw new ApiError(401, "Sesi tidak valid atau sudah kedaluwarsa, silakan login lagi");
   }
 
-  try {
-    const payload = jwt.verify(token, secret) as unknown as AdminPayload;
-    req.admin = payload;
-    next();
-  } catch {
-    throw new ApiError(401, "Token tidak valid atau sudah kedaluwarsa");
-  }
+  req.admin = { id: session.adminId, email: session.email };
+  next();
 }
