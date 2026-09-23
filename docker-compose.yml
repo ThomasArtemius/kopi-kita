@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kopikita
+      POSTGRES_USER: kopikita
+      # Password lokal saja — jangan pakai nilai ini di production.
+      POSTGRES_PASSWORD: kopikita123
+    ports:
+      - "5432:5432"
+    volumes:
+      - kopikita_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kopikita -d kopikita"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kopikita_db_data:
