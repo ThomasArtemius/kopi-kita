@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { asyncHandler } from "../asyncHandler.js";
-import { pool } from "../db.js";
-import { ApiError } from "../errors.js";
-import { requireAdmin } from "../middleware/requireAdmin.js";
-import { PRODUCT_CATEGORIES, type ProductCategory } from "../types.js";
+import { asyncHandler } from "../asyncHandler";
+import { pool } from "../db";
+import { ApiError } from "../errors";
+import { requireAdmin } from "../middleware/requireAdmin";
+import { PRODUCT_CATEGORIES, type ProductCategory } from "../types";
 
 const router = Router();
 
@@ -22,7 +22,7 @@ function isPositivePrice(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-// GET /products?category=kopi|non-kopi|pastry
+// GET /api/products?category=kopi|non-kopi|pastry
 router.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -45,7 +45,7 @@ router.get(
   }),
 );
 
-// POST /products — admin only
+// POST /api/products — admin only
 router.post(
   "/",
   requireAdmin,
@@ -78,7 +78,7 @@ router.post(
   }),
 );
 
-// PUT /products/:id — admin only, update field yang dikirim saja
+// PUT /api/products/:id — admin only, update field yang dikirim saja
 router.put(
   "/:id",
   requireAdmin,
@@ -146,7 +146,7 @@ router.put(
   }),
 );
 
-// DELETE /products/:id — admin only
+// DELETE /api/products/:id — admin only
 router.delete(
   "/:id",
   requireAdmin,

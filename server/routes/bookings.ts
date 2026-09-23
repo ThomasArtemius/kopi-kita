@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { asyncHandler } from "../asyncHandler.js";
-import { pool } from "../db.js";
-import { ApiError } from "../errors.js";
-import { requireAdmin } from "../middleware/requireAdmin.js";
-import { BOOKING_STATUSES, type BookingStatus } from "../types.js";
+import { asyncHandler } from "../asyncHandler";
+import { pool } from "../db";
+import { ApiError } from "../errors";
+import { requireAdmin } from "../middleware/requireAdmin";
+import { BOOKING_STATUSES, type BookingStatus } from "../types";
 
 const router = Router();
 
@@ -30,7 +30,7 @@ function todayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-// POST /bookings
+// POST /api/bookings
 router.post(
   "/",
   asyncHandler(async (req, res) => {
@@ -96,7 +96,7 @@ router.post(
   }),
 );
 
-// GET /bookings — admin only, urut dari tanggal+jam terdekat
+// GET /api/bookings — admin only, urut dari tanggal+jam terdekat
 router.get(
   "/",
   requireAdmin,
@@ -108,7 +108,7 @@ router.get(
   }),
 );
 
-// PATCH /bookings/:id — admin only, ubah status saja
+// PATCH /api/bookings/:id — admin only, ubah status saja
 router.patch(
   "/:id",
   requireAdmin,

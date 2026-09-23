@@ -1,15 +1,15 @@
 import bcrypt from "bcryptjs";
 import { Router, type CookieOptions } from "express";
-import { asyncHandler } from "../asyncHandler.js";
-import { pool } from "../db.js";
-import { ApiError } from "../errors.js";
-import { requireAdmin, type AuthedRequest } from "../middleware/requireAdmin.js";
+import { asyncHandler } from "../asyncHandler";
+import { pool } from "../db";
+import { ApiError } from "../errors";
+import { requireAdmin, type AuthedRequest } from "../middleware/requireAdmin";
 import {
   SESSION_COOKIE_NAME,
   SESSION_TTL_MS,
   createSession,
   destroySession,
-} from "../sessionStore.js";
+} from "../sessionStore";
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { ApiError } from "../errors.js";
-import { getSession, SESSION_COOKIE_NAME } from "../sessionStore.js";
+import { ApiError } from "../errors";
+import { getSession, SESSION_COOKIE_NAME } from "../sessionStore";
 
 export interface AuthedRequest extends Request {
   admin?: { id: number; email: string };

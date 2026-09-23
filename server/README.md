@@ -1,10 +1,18 @@
-# Kopi Kita — Backend
+# Kopi Kita — Backend (`server/`)
+
+Backend Express hidup di sini sebagai bagian dari aplikasi Next.js yang
+sama — bukan proses/server terpisah. `server/app.ts` mengekspor instance
+Express (tanpa `.listen()`); `app/api/[...slug]/route.ts` menjembatani
+setiap request `/api/*` yang masuk ke Next.js dan meneruskannya ke Express
+lewat `light-my-request` (dipanggil sebagai fungsi biasa, bukan lewat
+network). Jadi semua jalan satu origin di port yang sama dengan halaman
+Next.js — tidak ada CORS, tidak ada port terpisah.
 
 ## Database
 
-Skema dan data awal ada di `db/schema.sql` dan `db/seed.sql`. Keduanya dijalankan
-terhadap PostgreSQL yang sudah jalan lewat `docker-compose.yml` di root proyek
-(service `db`, database `kopikita`).
+Skema dan data awal ada di `db/schema.sql` dan `db/seed.sql`. Keduanya
+dijalankan terhadap PostgreSQL yang sudah jalan lewat `docker-compose.yml`
+di root proyek (service `db`, database `kopikita`).
 
 ### 1. Pastikan container database jalan
 
@@ -17,13 +25,13 @@ docker compose ps   # pastikan status "healthy"
 ### 2. Jalankan schema.sql (buat tabel)
 
 ```bash
-docker compose exec -T db psql -U kopikita -d kopikita < api/db/schema.sql
+docker compose exec -T db psql -U kopikita -d kopikita < server/db/schema.sql
 ```
 
 ### 3. Jalankan seed.sql (isi data awal)
 
 ```bash
-docker compose exec -T db psql -U kopikita -d kopikita < api/db/seed.sql
+docker compose exec -T db psql -U kopikita -d kopikita < server/db/seed.sql
 ```
 
 Kedua file aman dijalankan berkali-kali (`CREATE TABLE IF NOT EXISTS` dan
@@ -39,8 +47,8 @@ docker compose exec -T db psql -U kopikita -d kopikita -c \
    UNION ALL SELECT 'admins', COUNT(*) FROM admins;"
 ```
 
-Hasil yang diharapkan: `products = 8`, `bookings = 0` (belum ada booking
-masuk), `admins = 1`.
+Hasil yang diharapkan: `products = 8`, `admins = 1` (jumlah `bookings`
+tergantung data yang sudah masuk).
 
 ## Login admin default
 
@@ -51,13 +59,15 @@ Password disimpan ter-hash (bcrypt via `pgcrypto` saat seeding).
 `POST /api/auth/login` memverifikasinya dengan `bcrypt.compare` (package
 `bcryptjs`) — hash `$2a$...` dari `pgcrypto` kompatibel dengan bcrypt standar.
 
-## Menjalankan server API
+## Menjalankan
+
+Tidak ada server/proses terpisah untuk dijalankan — cukup jalankan Next.js
+seperti biasa dari root proyek:
 
 ```bash
-cd api
-cp .env.example .env
+cp .env.example .env.local   # isi DATABASE_URL kalau beda dari default
 npm install
-npm run dev   # tsx watch, auto-restart — jalan di http://localhost:4000
+npm run dev   # Next.js + API Express sekaligus, di http://localhost:3000
 ```
 
 ## Endpoint
@@ -77,34 +87,35 @@ npm run dev   # tsx watch, auto-restart — jalan di http://localhost:4000
 
 ## Autentikasi admin (session cookie)
 
-Login menyimpan session di **Map di memori** (`api/src/sessionStore.ts`) dan
+Login menyimpan session di **Map di memori** (`server/sessionStore.ts`,
+di-cache lewat `globalThis` supaya bertahan lewat hot-reload dev) dan
 mengirim id session lewat cookie `httpOnly` bernama `kopikita_session`
 (berlaku 8 jam). Endpoint "admin" di tabel atas dijaga middleware
 `requireAdmin` yang membaca cookie ini.
 
 > Catatan: penyimpanan session di Map cukup untuk pengembangan lokal —
-> sessionnya hilang tiap server di-restart dan tidak terbagi kalau nanti
+> hilang saat server benar-benar di-restart, dan tidak terbagi kalau nanti
 > jalan lebih dari satu instance. Pindahkan ke tabel database (atau Redis)
-> sebelum deploy ke production.
+> sebelum deploy ke production / multi-instance.
 
-Karena pakai cookie lintas port (frontend `:3000`, API `:4000`), request dari
-browser/fetch harus menyertakan `credentials: "include"`, dan server sudah
-diset `cors({ credentials: true })` untuk mengizinkannya.
+Karena sekarang satu origin (bukan lintas port lagi), cookie sudah otomatis
+ikut terkirim di request `fetch` biasa — `lib/api.ts` tetap set
+`credentials: "include"` (aman, tidak mengubah apa pun untuk same-origin).
 
 Contoh alur lewat curl (`-c`/`-b` menyimpan & mengirim ulang cookie):
 
 ```bash
 # Login — simpan cookie ke file
-curl -c cookies.txt -X POST http://localhost:4000/api/auth/login \
+curl -c cookies.txt -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@kopikita.id","password":"kopikita-admin"}'
 
 # Pakai cookie untuk endpoint admin-only
-curl -b cookies.txt http://localhost:4000/api/bookings
-curl -b cookies.txt http://localhost:4000/api/auth/me
+curl -b cookies.txt http://localhost:3000/api/bookings
+curl -b cookies.txt http://localhost:3000/api/auth/me
 
 # Logout
-curl -b cookies.txt -X POST http://localhost:4000/api/auth/logout
+curl -b cookies.txt -X POST http://localhost:3000/api/auth/logout
 ```
 
 ### Kode status

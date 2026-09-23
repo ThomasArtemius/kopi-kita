@@ -12,11 +12,24 @@ const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
-    "DATABASE_URL belum diset. Salin api/.env.example menjadi api/.env lalu isi nilainya.",
+    "DATABASE_URL belum diset. Salin .env.example menjadi .env.local lalu isi nilainya.",
   );
 }
 
-export const pool = new Pool({ connectionString });
+// next dev (Turbopack/webpack HMR) me-reload modul di file yang berubah.
+// Simpan pool di globalThis supaya tidak bikin koneksi Postgres baru tiap
+// kali ada hot reload -- pola yang sama dipakai untuk client Prisma dkk.
+const globalForDb = globalThis as unknown as {
+  __kopikitaPgPool?: InstanceType<typeof Pool>;
+};
+
+export const pool =
+  globalForDb.__kopikitaPgPool ??
+  new Pool({ connectionString });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForDb.__kopikitaPgPool = pool;
+}
 
 pool.on("error", (err) => {
   // Error di koneksi idle pada pool (bukan error per-query) — log saja,

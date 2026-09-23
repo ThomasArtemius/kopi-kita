@@ -1,27 +1,20 @@
-import "dotenv/config";
 import cookieParser from "cookie-parser";
-import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
-import authRouter from "./routes/auth.js";
-import bookingsRouter from "./routes/bookings.js";
-import productsRouter from "./routes/products.js";
-import { ApiError } from "./errors.js";
+import authRouter from "./routes/auth";
+import bookingsRouter from "./routes/bookings";
+import productsRouter from "./routes/products";
+import { ApiError } from "./errors";
 
+// App Express murni -- TIDAK listen() di port sendiri. Dipanggil sebagai
+// handler biasa dari app/api/[...slug]/route.ts (lewat light-my-request),
+// jadi semua request /api/* tetap satu origin dengan halaman Next.js.
+// Karena itu juga middleware cors sudah tidak diperlukan sama sekali.
 const app = express();
-const PORT = Number(process.env.PORT) || 4000;
 
-// credentials: true wajib supaya browser boleh kirim/terima cookie session
-// lintas origin (frontend :3000 <-> API :4000).
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
-    credentials: true,
-  }),
-);
 app.use(express.json());
 app.use(cookieParser());
 
-app.get("/health", (_req, res) => {
+app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
@@ -35,6 +28,9 @@ app.use((req, res) => {
 });
 
 // Error handler pusat. ApiError -> status code aslinya, selain itu -> 500.
+// Express mengenali error handler dari jumlah parameternya (harus 4) --
+// _next tetap wajib ada meski tidak dipakai di sini.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof ApiError) {
     res.status(err.status).json({ error: err.message });
@@ -44,6 +40,4 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Terjadi kesalahan pada server" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Kopi Kita API jalan di http://localhost:${PORT}`);
-});
+export default app;
