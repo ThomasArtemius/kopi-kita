@@ -17,6 +17,17 @@ interface BookingData {
   notes: string;
 }
 
+interface BookingApiResponse {
+  id: number;
+  customer_name: string;
+  whatsapp: string;
+  booking_date: string;
+  booking_time: string;
+  party_size: number;
+  notes: string | null;
+  status: string;
+}
+
 type FieldErrors = Partial<Record<keyof BookingData, string>>;
 
 const initialData: BookingData = {
@@ -36,6 +47,30 @@ const allTouched: Record<keyof BookingData, boolean> = {
   guests: true,
   notes: true,
 };
+
+// Field API (bookings.ts) -> field form ini, dipakai buat memetakan pesan
+// error 400 dari server ke input yang tepat.
+const API_FIELD_TO_FORM_FIELD: Record<string, keyof BookingData> = {
+  customer_name: "name",
+  whatsapp: "whatsapp",
+  booking_date: "date",
+  booking_time: "time",
+  party_size: "guests",
+  notes: "notes",
+};
+
+function parseServerFieldErrors(message: string): FieldErrors {
+  const result: FieldErrors = {};
+  for (const part of message.split(";").map((p) => p.trim()).filter(Boolean)) {
+    const apiField = Object.keys(API_FIELD_TO_FORM_FIELD).find((key) =>
+      part.startsWith(key),
+    );
+    if (apiField) {
+      result[API_FIELD_TO_FORM_FIELD[apiField]] = part;
+    }
+  }
+  return result;
+}
 
 function getTodayString() {
   const now = new Date();
@@ -116,17 +151,28 @@ export default function BookingForm() {
   const [touched, setTouched] = useState<Partial<Record<keyof BookingData, boolean>>>(
     {},
   );
-  const [submittedData, setSubmittedData] = useState<BookingData | null>(
+  const [serverFieldErrors, setServerFieldErrors] = useState<FieldErrors>({});
+  const [confirmedBooking, setConfirmedBooking] = useState<BookingApiResponse | null>(
     null,
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const errors = validate(formData);
-  const isValid = Object.keys(errors).length === 0;
+  const clientErrors = validate(formData);
+  const isValid = Object.keys(clientErrors).length === 0;
+
+  function fieldMessage(field: keyof BookingData): string | undefined {
+    return serverFieldErrors[field] ?? clientErrors[field];
+  }
 
   function handleChange(field: keyof BookingData, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    setServerFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }
 
   function handleBlur(field: keyof BookingData) {
@@ -142,6 +188,7 @@ export default function BookingForm() {
 
     setSubmitting(true);
     setSubmitError(null);
+    setServerFieldErrors({});
 
     try {
       const res = await apiFetch("/api/bookings", {
@@ -158,13 +205,25 @@ export default function BookingForm() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setSubmitError(body?.error ?? "Gagal mengirim booking, coba lagi.");
+        const message: string | undefined = body?.error;
+
+        if (res.status === 400 && message) {
+          const fieldErrors = parseServerFieldErrors(message);
+          if (Object.keys(fieldErrors).length > 0) {
+            setServerFieldErrors(fieldErrors);
+            setTouched(allTouched);
+            return;
+          }
+        }
+
+        setSubmitError(message ?? "Gagal mengirim booking, coba lagi.");
         return;
       }
 
-      setSubmittedData(formData);
+      const booking: BookingApiResponse = await res.json();
+      setConfirmedBooking(booking);
     } catch {
-      setSubmitError("Tidak bisa menghubungi server. Coba lagi sebentar.");
+      setSubmitError("Koneksi bermasalah, coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -173,11 +232,12 @@ export default function BookingForm() {
   function handleReset() {
     setFormData(initialData);
     setTouched({});
-    setSubmittedData(null);
+    setServerFieldErrors({});
+    setConfirmedBooking(null);
     setSubmitError(null);
   }
 
-  if (submittedData) {
+  if (confirmedBooking) {
     return (
       <div className="flex flex-col gap-6 rounded-3xl border border-espresso/10 bg-white/70 p-8 text-center shadow-sm sm:p-10">
         <div className="flex flex-col items-center gap-3">
@@ -194,12 +254,13 @@ export default function BookingForm() {
 
         <dl className="flex flex-col divide-y divide-espresso/10 rounded-2xl bg-cream text-left">
           {[
-            { label: "Nama Lengkap", value: submittedData.name },
-            { label: "Nomor WhatsApp", value: submittedData.whatsapp },
-            { label: "Tanggal", value: formatDate(submittedData.date) },
-            { label: "Jam", value: submittedData.time },
-            { label: "Jumlah Orang", value: `${submittedData.guests} orang` },
-            { label: "Catatan", value: submittedData.notes || "-" },
+            { label: "ID Booking", value: `#${confirmedBooking.id}` },
+            { label: "Nama Lengkap", value: confirmedBooking.customer_name },
+            { label: "Nomor WhatsApp", value: confirmedBooking.whatsapp },
+            { label: "Tanggal", value: formatDate(confirmedBooking.booking_date) },
+            { label: "Jam", value: confirmedBooking.booking_time },
+            { label: "Jumlah Orang", value: `${confirmedBooking.party_size} orang` },
+            { label: "Catatan", value: confirmedBooking.notes || "-" },
           ].map((row) => (
             <div
               key={row.label}
@@ -244,10 +305,10 @@ export default function BookingForm() {
             value={formData.name}
             onChange={(e) => handleChange("name", e.target.value)}
             onBlur={() => handleBlur("name")}
-            aria-invalid={touched.name && !!errors.name}
-            className={inputClass(!!(touched.name && errors.name))}
+            aria-invalid={touched.name && !!fieldMessage("name")}
+            className={inputClass(!!(touched.name && fieldMessage("name")))}
           />
-          {touched.name && <FieldError message={errors.name} />}
+          {touched.name && <FieldError message={fieldMessage("name")} />}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -262,10 +323,10 @@ export default function BookingForm() {
             value={formData.whatsapp}
             onChange={(e) => handleChange("whatsapp", e.target.value)}
             onBlur={() => handleBlur("whatsapp")}
-            aria-invalid={touched.whatsapp && !!errors.whatsapp}
-            className={inputClass(!!(touched.whatsapp && errors.whatsapp))}
+            aria-invalid={touched.whatsapp && !!fieldMessage("whatsapp")}
+            className={inputClass(!!(touched.whatsapp && fieldMessage("whatsapp")))}
           />
-          {touched.whatsapp && <FieldError message={errors.whatsapp} />}
+          {touched.whatsapp && <FieldError message={fieldMessage("whatsapp")} />}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -279,10 +340,10 @@ export default function BookingForm() {
             value={formData.date}
             onChange={(e) => handleChange("date", e.target.value)}
             onBlur={() => handleBlur("date")}
-            aria-invalid={touched.date && !!errors.date}
-            className={inputClass(!!(touched.date && errors.date))}
+            aria-invalid={touched.date && !!fieldMessage("date")}
+            className={inputClass(!!(touched.date && fieldMessage("date")))}
           />
-          {touched.date && <FieldError message={errors.date} />}
+          {touched.date && <FieldError message={fieldMessage("date")} />}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -294,8 +355,8 @@ export default function BookingForm() {
             value={formData.time}
             onChange={(e) => handleChange("time", e.target.value)}
             onBlur={() => handleBlur("time")}
-            aria-invalid={touched.time && !!errors.time}
-            className={inputClass(!!(touched.time && errors.time))}
+            aria-invalid={touched.time && !!fieldMessage("time")}
+            className={inputClass(!!(touched.time && fieldMessage("time")))}
           >
             <option value="" disabled>
               Pilih jam
@@ -306,7 +367,7 @@ export default function BookingForm() {
               </option>
             ))}
           </select>
-          {touched.time && <FieldError message={errors.time} />}
+          {touched.time && <FieldError message={fieldMessage("time")} />}
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -322,10 +383,10 @@ export default function BookingForm() {
             value={formData.guests}
             onChange={(e) => handleChange("guests", e.target.value)}
             onBlur={() => handleBlur("guests")}
-            aria-invalid={touched.guests && !!errors.guests}
-            className={inputClass(!!(touched.guests && errors.guests))}
+            aria-invalid={touched.guests && !!fieldMessage("guests")}
+            className={inputClass(!!(touched.guests && fieldMessage("guests")))}
           />
-          {touched.guests && <FieldError message={errors.guests} />}
+          {touched.guests && <FieldError message={fieldMessage("guests")} />}
         </div>
       </div>
 
@@ -342,6 +403,7 @@ export default function BookingForm() {
           onChange={(e) => handleChange("notes", e.target.value)}
           className={`${inputClass(false)} resize-none`}
         />
+        {touched.notes && <FieldError message={fieldMessage("notes")} />}
       </div>
 
       {submitError && (
