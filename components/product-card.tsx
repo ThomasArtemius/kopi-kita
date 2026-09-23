@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { formatRupiah } from "@/lib/format";
 import type { MenuItem } from "@/lib/menu-data";
 
 const categoryIcon: Record<MenuItem["category"], string> = {
@@ -9,10 +10,6 @@ const categoryIcon: Record<MenuItem["category"], string> = {
   "non-kopi": "🍵",
   pastry: "🥐",
 };
-
-function formatPrice(price: number) {
-  return `Rp ${price.toLocaleString("id-ID")}`;
-}
 
 export default function ProductCard({ item }: { item: MenuItem }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -52,7 +49,7 @@ export default function ProductCard({ item }: { item: MenuItem }) {
           {item.description}
         </p>
         <span className="mt-auto pt-2 font-semibold text-accent">
-          {formatPrice(item.price)}
+          {formatRupiah(item.price)}
         </span>
       </div>
     </div>
