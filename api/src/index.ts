@@ -1,9 +1,17 @@
 import "dotenv/config";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
+import adminRouter from "./routes/admin.js";
 import bookingsRouter from "./routes/bookings.js";
 import productsRouter from "./routes/products.js";
 import { ApiError } from "./errors.js";
+
+if (!process.env.JWT_SECRET) {
+  console.error(
+    "JWT_SECRET belum diset di .env — salin dari .env.example dan isi nilainya.",
+  );
+  process.exit(1);
+}
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
@@ -15,8 +23,9 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/products", productsRouter);
-app.use("/bookings", bookingsRouter);
+app.use("/api/products", productsRouter);
+app.use("/api/bookings", bookingsRouter);
+app.use("/api/admin", adminRouter);
 
 // Route tidak dikenal — tetap balas JSON, bukan halaman HTML default Express.
 app.use((req, res) => {

@@ -47,8 +47,51 @@ masuk), `admins = 1`.
 - Email: `admin@kopikita.id`
 - Password: `kopikita-admin`
 
-Password disimpan ter-hash (bcrypt via `pgcrypto`), bukan plain text. Untuk
-memverifikasi login nanti di kode backend, gunakan `crypt(input_password,
-password_hash) = password_hash`, atau bandingkan dengan library bcrypt
-(`bcrypt.compare`) di sisi aplikasi — hash yang dihasilkan `pgcrypto`
-(format `$2a$...`) kompatibel dengan library bcrypt standar.
+Password disimpan ter-hash (bcrypt via `pgcrypto`), bukan plain text.
+`POST /api/admin/login` memverifikasinya lewat `crypt(input_password,
+password_hash) = password_hash` langsung di query SQL.
+
+## Menjalankan server API
+
+```bash
+cd api
+cp .env.example .env   # lalu isi JWT_SECRET dengan string acak sendiri
+npm install
+npm run dev             # tsx watch, auto-restart — jalan di http://localhost:4000
+```
+
+## Endpoint
+
+| Endpoint | Tugas | Siapa yang boleh |
+|---|---|---|
+| `GET /api/products` | daftar produk, bisa filter `?category=` | publik |
+| `POST /api/products` | tambah produk | admin |
+| `PUT /api/products/:id` | ubah produk (field yang dikirim saja) | admin |
+| `DELETE /api/products/:id` | hapus produk | admin |
+| `POST /api/bookings` | buat booking | publik |
+| `GET /api/bookings` | daftar booking, urut tanggal+jam terdekat | admin |
+| `PATCH /api/bookings/:id` | ubah status booking | admin |
+| `POST /api/admin/login` | login admin, balas JWT | publik |
+
+Endpoint "admin" butuh header `Authorization: Bearer <token>` — token
+didapat dari `POST /api/admin/login`, berlaku 8 jam.
+
+Contoh:
+
+```bash
+# Login, ambil token
+TOKEN=$(curl -s -X POST http://localhost:4000/api/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@kopikita.id","password":"kopikita-admin"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
+
+# Pakai token untuk endpoint admin-only
+curl http://localhost:4000/api/bookings -H "Authorization: Bearer $TOKEN"
+```
+
+### Kode status
+
+- `400` — input tidak valid (field kosong/salah format)
+- `401` — belum login / token tidak ada / token salah-kedaluwarsa / kredensial login salah
+- `404` — data atau route tidak ditemukan
+- `500` — error server

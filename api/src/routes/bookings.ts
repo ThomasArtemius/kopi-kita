@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../asyncHandler.js";
 import { pool } from "../db.js";
 import { ApiError } from "../errors.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 import { BOOKING_STATUSES, type BookingStatus } from "../types.js";
 
 const router = Router();
@@ -95,9 +96,10 @@ router.post(
   }),
 );
 
-// GET /bookings — urut dari tanggal+jam terdekat
+// GET /bookings — admin only, urut dari tanggal+jam terdekat
 router.get(
   "/",
+  requireAdmin,
   asyncHandler(async (_req, res) => {
     const result = await pool.query(
       "SELECT * FROM bookings ORDER BY booking_date ASC, booking_time ASC",
@@ -106,9 +108,10 @@ router.get(
   }),
 );
 
-// PATCH /bookings/:id — ubah status saja
+// PATCH /bookings/:id — admin only, ubah status saja
 router.patch(
   "/:id",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw new ApiError(400, "id tidak valid");

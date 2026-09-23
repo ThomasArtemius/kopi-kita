@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../asyncHandler.js";
 import { pool } from "../db.js";
 import { ApiError } from "../errors.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "../types.js";
 
 const router = Router();
@@ -44,9 +45,10 @@ router.get(
   }),
 );
 
-// POST /products
+// POST /products — admin only
 router.post(
   "/",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const body = req.body ?? {};
     const { name, description, price, category, image_url, available } = body;
@@ -76,9 +78,10 @@ router.post(
   }),
 );
 
-// PUT /products/:id  — update field yang dikirim saja
+// PUT /products/:id — admin only, update field yang dikirim saja
 router.put(
   "/:id",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw new ApiError(400, "id tidak valid");
@@ -143,9 +146,10 @@ router.put(
   }),
 );
 
-// DELETE /products/:id
+// DELETE /products/:id — admin only
 router.delete(
   "/:id",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) throw new ApiError(400, "id tidak valid");
