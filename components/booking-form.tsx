@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { apiFetch } from "@/lib/api";
 
 const hourOptions = Array.from({ length: 12 }, (_, i) => {
   const hour = 10 + i;
@@ -118,6 +119,8 @@ export default function BookingForm() {
   const [submittedData, setSubmittedData] = useState<BookingData | null>(
     null,
   );
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const errors = validate(formData);
   const isValid = Object.keys(errors).length === 0;
@@ -130,19 +133,48 @@ export default function BookingForm() {
     setTouched((prev) => ({ ...prev, [field]: true }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isValid) {
       setTouched(allTouched);
       return;
     }
-    setSubmittedData(formData);
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await apiFetch("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          customer_name: formData.name,
+          whatsapp: formData.whatsapp,
+          booking_date: formData.date,
+          booking_time: formData.time,
+          party_size: Number(formData.guests),
+          notes: formData.notes || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setSubmitError(body?.error ?? "Gagal mengirim booking, coba lagi.");
+        return;
+      }
+
+      setSubmittedData(formData);
+    } catch {
+      setSubmitError("Tidak bisa menghubungi server. Coba lagi sebentar.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleReset() {
     setFormData(initialData);
     setTouched({});
     setSubmittedData(null);
+    setSubmitError(null);
   }
 
   if (submittedData) {
@@ -312,12 +344,18 @@ export default function BookingForm() {
         />
       </div>
 
+      {submitError && (
+        <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600" role="alert">
+          {submitError}
+        </p>
+      )}
+
       <button
         type="submit"
-        disabled={!isValid}
+        disabled={!isValid || submitting}
         className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-cream transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:bg-espresso/20 disabled:text-espresso/40 disabled:hover:bg-espresso/20"
       >
-        Booking Sekarang
+        {submitting ? "Mengirim..." : "Booking Sekarang"}
       </button>
     </form>
   );
