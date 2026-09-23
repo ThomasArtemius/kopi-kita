@@ -14,31 +14,36 @@ Skema dan data awal ada di `db/schema.sql` dan `db/seed.sql`. Keduanya
 dijalankan terhadap PostgreSQL yang sudah jalan lewat `docker-compose.yml`
 di root proyek (service `db`, database `kopikita`).
 
-### 1. Pastikan container database jalan
+### Cara cepat: reset dari nol
+
+```bash
+npm run db:reset
+```
+
+Menjalankan `scripts/db-reset.sh`: pastikan container `db` jalan, drop
+semua tabel (kalau ada), lalu jalankan ulang `schema.sql` dan `seed.sql`
+dari nol. Aman dijalankan berkali-kali kapan saja butuh data bersih lagi.
+
+### Manual, langkah per langkah
 
 ```bash
 cd ~/latihan-module
 docker compose up -d
 docker compose ps   # pastikan status "healthy"
-```
 
-### 2. Jalankan schema.sql (buat tabel)
-
-```bash
+# 1. Jalankan schema.sql (buat tabel)
 docker compose exec -T db psql -U kopikita -d kopikita < server/db/schema.sql
-```
 
-### 3. Jalankan seed.sql (isi data awal)
-
-```bash
+# 2. Jalankan seed.sql (isi data awal)
 docker compose exec -T db psql -U kopikita -d kopikita < server/db/seed.sql
 ```
 
 Kedua file aman dijalankan berkali-kali (`CREATE TABLE IF NOT EXISTS` dan
 `ON CONFLICT ... DO NOTHING`) — tidak akan duplikat data atau error kalau
-diulang.
+diulang, tapi juga tidak menghapus data yang sudah berubah lewat aplikasi
+(pakai `npm run db:reset` kalau memang mau bersih total).
 
-### 4. Verifikasi jumlah baris
+### Verifikasi jumlah baris
 
 ```bash
 docker compose exec -T db psql -U kopikita -d kopikita -c \
@@ -47,8 +52,7 @@ docker compose exec -T db psql -U kopikita -d kopikita -c \
    UNION ALL SELECT 'admins', COUNT(*) FROM admins;"
 ```
 
-Hasil yang diharapkan: `products = 8`, `admins = 1` (jumlah `bookings`
-tergantung data yang sudah masuk).
+Setelah seed dari nol: `products = 10`, `bookings = 5`, `admins = 1`.
 
 ## Login admin default
 
