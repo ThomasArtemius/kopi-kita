@@ -1,56 +1,51 @@
 import crypto from "node:crypto";
+import { pool } from "./db";
 
 export interface SessionData {
   adminId: number;
   email: string;
-  createdAt: number;
-  expiresAt: number;
+  expiresAt: Date;
 }
 
 export const SESSION_COOKIE_NAME = "kopikita_session";
 export const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 jam
 
-// Simpan Map di globalThis supaya bertahan lewat hot reload dev (next dev
-// me-reload modul yang berubah -- tanpa ini, admin bisa "ter-logout" setiap
-// kali ada file lain yang di-save). Tetap: penyimpanan session di memori
-// cukup untuk pengembangan lokal -- hilang saat server benar-benar
-// di-restart, dan tidak terbagi kalau nanti jalan lebih dari satu instance.
-// Pindahkan ke tabel di database (atau Redis) sebelum deploy ke
-// production / multi-instance.
-const globalForSessions = globalThis as unknown as {
-  __kopikitaSessions?: Map<string, SessionData>;
-};
+// Session disimpan di tabel `sessions` (lihat server/db/schema.sql), bukan
+// di memori proses, jadi tetap valid walau tiap request dijalankan oleh
+// instance serverless yang berbeda atau server di-restart. Semua
+// perbandingan waktu memakai now() milik Postgres supaya tidak bergantung
+// pada jam/timezone proses Node.
 
-const sessions = globalForSessions.__kopikitaSessions ?? new Map<string, SessionData>();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForSessions.__kopikitaSessions = sessions;
-}
-
-export function createSession(adminId: number, email: string): string {
+export async function createSession(adminId: number): Promise<string> {
   const sessionId = crypto.randomBytes(32).toString("hex");
-  const now = Date.now();
-  sessions.set(sessionId, {
-    adminId,
-    email,
-    createdAt: now,
-    expiresAt: now + SESSION_TTL_MS,
-  });
+
+  // Sekalian bersihkan baris kadaluarsa supaya tabel tidak menumpuk.
+  await pool.query("DELETE FROM sessions WHERE expires_at <= now()");
+  await pool.query(
+    `INSERT INTO sessions (id, admin_id, expires_at)
+     VALUES ($1, $2, now() + make_interval(secs => $3))`,
+    [sessionId, adminId, SESSION_TTL_MS / 1000],
+  );
+
   return sessionId;
 }
 
-export function getSession(sessionId: string): SessionData | undefined {
-  const session = sessions.get(sessionId);
-  if (!session) return undefined;
+/** Kembalikan data session kalau ada DAN belum kadaluarsa, selain itu undefined. */
+export async function getSession(sessionId: string): Promise<SessionData | undefined> {
+  const result = await pool.query(
+    `SELECT s.admin_id, a.email, s.expires_at
+     FROM sessions s
+     JOIN admins a ON a.id = s.admin_id
+     WHERE s.id = $1 AND s.expires_at > now()`,
+    [sessionId],
+  );
 
-  if (session.expiresAt < Date.now()) {
-    sessions.delete(sessionId);
-    return undefined;
-  }
+  const row = result.rows[0];
+  if (!row) return undefined;
 
-  return session;
+  return { adminId: row.admin_id, email: row.email, expiresAt: row.expires_at };
 }
 
-export function destroySession(sessionId: string): void {
-  sessions.delete(sessionId);
+export async function destroySession(sessionId: string): Promise<void> {
+  await pool.query("DELETE FROM sessions WHERE id = $1", [sessionId]);
 }

@@ -16,7 +16,7 @@ done
 
 echo "==> Drop tabel lama (kalau ada)..."
 docker compose exec -T db psql -U kopikita -d kopikita -c \
-  "DROP TABLE IF EXISTS bookings, products, admins CASCADE;"
+  "DROP TABLE IF EXISTS sessions, bookings, products, admins CASCADE;"
 
 echo "==> Menjalankan schema.sql..."
 docker compose exec -T db psql -U kopikita -d kopikita < server/db/schema.sql

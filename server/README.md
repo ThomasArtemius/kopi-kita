@@ -52,7 +52,7 @@ docker compose exec -T db psql -U kopikita -d kopikita -c \
    UNION ALL SELECT 'admins', COUNT(*) FROM admins;"
 ```
 
-Setelah seed dari nol: `products = 10`, `bookings = 5`, `admins = 1`.
+Setelah seed dari nol: `products = 10`, `bookings = 5`, `admins = 1`, `sessions = 0`.
 
 ## Login admin default
 
@@ -91,16 +91,21 @@ npm run dev   # Next.js + API Express sekaligus, di http://localhost:3000
 
 ## Autentikasi admin (session cookie)
 
-Login menyimpan session di **Map di memori** (`server/sessionStore.ts`,
-di-cache lewat `globalThis` supaya bertahan lewat hot-reload dev) dan
-mengirim id session lewat cookie `httpOnly` bernama `kopikita_session`
-(berlaku 8 jam). Endpoint "admin" di tabel atas dijaga middleware
-`requireAdmin` yang membaca cookie ini.
+Session disimpan di tabel **`sessions`** di Postgres (`id` = session id acak,
+`admin_id`, `expires_at`; lihat `server/db/schema.sql` dan
+`server/sessionStore.ts`), bukan di memori proses — jadi tetap valid di
+lingkungan serverless (tiap request bisa jalan di instance berbeda) dan
+setelah server di-restart.
 
-> Catatan: penyimpanan session di Map cukup untuk pengembangan lokal —
-> hilang saat server benar-benar di-restart, dan tidak terbagi kalau nanti
-> jalan lebih dari satu instance. Pindahkan ke tabel database (atau Redis)
-> sebelum deploy ke production / multi-instance.
+- **Login** (`POST /api/auth/login`) membuat baris baru dan mengirim id-nya
+  lewat cookie `httpOnly` bernama `kopikita_session` (berlaku 8 jam).
+  Sekalian menghapus baris session lain yang sudah kadaluarsa.
+- **Logout** (`POST /api/auth/logout`) menghapus barisnya dan cookie-nya.
+- **`requireAdmin`** memeriksa cookie itu ke tabel `sessions` di setiap
+  request admin, dan menolak (401) kalau barisnya tidak ada atau
+  `expires_at` sudah lewat. Perbandingan waktu memakai `now()` milik
+  Postgres, bukan jam proses Node.
+- Kalau admin dihapus, session-nya ikut terhapus (`ON DELETE CASCADE`).
 
 Karena sekarang satu origin (bukan lintas port lagi), cookie sudah otomatis
 ikut terkirim di request `fetch` biasa — `lib/api.ts` tetap set

@@ -35,3 +35,14 @@ CREATE TABLE IF NOT EXISTS admins (
   email          VARCHAR NOT NULL UNIQUE,
   password_hash  VARCHAR NOT NULL                              -- hasil hash, BUKAN password asli
 );
+
+-- Tabel sessions: session login admin (menggantikan Map di memori, supaya
+-- awet di lingkungan serverless). Satu baris per login aktif; logout
+-- menghapus barisnya, dan baris kadaluarsa ditolak oleh requireAdmin.
+CREATE TABLE IF NOT EXISTS sessions (
+  id          VARCHAR PRIMARY KEY,                             -- session id acak
+  admin_id    INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  expires_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at);

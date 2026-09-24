@@ -48,19 +48,22 @@ router.post(
       throw new ApiError(401, "Email atau password salah");
     }
 
-    const sessionId = createSession(admin.id, admin.email);
+    const sessionId = await createSession(admin.id);
     res.cookie(SESSION_COOKIE_NAME, sessionId, cookieOptions);
     res.json({ admin: { id: admin.id, email: admin.email } });
   }),
 );
 
 // POST /api/auth/logout
-router.post("/logout", (req: AuthedRequest, res) => {
-  const sessionId: string | undefined = req.cookies?.[SESSION_COOKIE_NAME];
-  if (sessionId) destroySession(sessionId);
-  res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
-  res.status(204).send();
-});
+router.post(
+  "/logout",
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const sessionId: string | undefined = req.cookies?.[SESSION_COOKIE_NAME];
+    if (sessionId) await destroySession(sessionId);
+    res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
+    res.status(204).send();
+  }),
+);
 
 // GET /api/auth/me
 router.get("/me", requireAdmin, (req: AuthedRequest, res) => {

@@ -8,21 +8,29 @@ export interface AuthedRequest extends Request {
 
 /**
  * Gerbang untuk endpoint admin-only. Baca cookie session (di-set oleh
- * POST /api/auth/login), cari di session store, tempel data admin ke
+ * POST /api/auth/login), periksa ke tabel `sessions` di database, tolak
+ * kalau tidak ada atau sudah kadaluarsa, dan tempel data admin ke
  * req.admin kalau valid.
+ *
+ * Pemeriksaan ke database itu async, dan Express 4 tidak menangkap
+ * promise yang ditolak di middleware -- jadi error diteruskan manual
+ * lewat next(err).
  */
 export function requireAdmin(req: AuthedRequest, _res: Response, next: NextFunction) {
   const sessionId: string | undefined = req.cookies?.[SESSION_COOKIE_NAME];
 
   if (!sessionId) {
-    throw new ApiError(401, "Belum login sebagai admin");
+    next(new ApiError(401, "Belum login sebagai admin"));
+    return;
   }
 
-  const session = getSession(sessionId);
-  if (!session) {
-    throw new ApiError(401, "Sesi tidak valid atau sudah kedaluwarsa, silakan login lagi");
-  }
-
-  req.admin = { id: session.adminId, email: session.email };
-  next();
+  getSession(sessionId)
+    .then((session) => {
+      if (!session) {
+        throw new ApiError(401, "Sesi tidak valid atau sudah kedaluwarsa, silakan login lagi");
+      }
+      req.admin = { id: session.adminId, email: session.email };
+      next();
+    })
+    .catch(next);
 }
