@@ -22,6 +22,27 @@ const featuredMenu = [
   },
 ];
 
+const testimonials = [
+  {
+    name: "Rina Maharani",
+    rating: 5,
+    comment:
+      "Kopi Susu Kita-nya juara! Manisnya pas, suasananya nyaman buat kerja seharian.",
+  },
+  {
+    name: "Dimas Prakoso",
+    rating: 5,
+    comment:
+      "Booking mejanya gampang banget, sampai langsung dapat tempat yang kami mau.",
+  },
+  {
+    name: "Alya Putri",
+    rating: 4,
+    comment:
+      "Croissant Almond-nya renyah dan wangi. Pelayanannya ramah, pasti balik lagi.",
+  },
+];
+
 const openingHours = [
   { day: "Senin – Jumat", time: "07.00 – 21.00" },
   { day: "Sabtu – Minggu", time: "08.00 – 22.00" },
@@ -108,7 +129,55 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 3. Info: jam buka, alamat, placeholder peta */}
+      {/* 3. Testimoni Pelanggan */}
+      <section className="mx-auto w-full max-w-6xl px-6 py-16">
+        <div className="mb-10 flex flex-col gap-2 text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-espresso">
+            Testimoni Pelanggan
+          </h2>
+          <p className="text-espresso/70">
+            Cerita singkat dari mereka yang sudah mampir ke Kopi Kita.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          {testimonials.map((item) => (
+            <figure
+              key={item.name}
+              className="flex flex-col gap-4 rounded-2xl border border-espresso/10 bg-white/60 p-6 shadow-sm"
+            >
+              <div
+                role="img"
+                aria-label={`Rating ${item.rating} dari 5`}
+                className="flex gap-0.5 text-lg leading-none"
+              >
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <span
+                    key={star}
+                    aria-hidden="true"
+                    className={star <= item.rating ? "text-accent" : "text-espresso/20"}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+              <blockquote className="text-sm leading-relaxed text-espresso/80">
+                “{item.comment}”
+              </blockquote>
+              <figcaption className="mt-auto flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent"
+                >
+                  {item.name.charAt(0)}
+                </span>
+                <span className="text-sm font-semibold text-espresso">{item.name}</span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* 4. Info: jam buka, alamat, placeholder peta */}
       <section className="mx-auto w-full max-w-6xl px-6 py-16">
         <div className="grid grid-cols-1 gap-10 rounded-3xl bg-espresso/[0.04] p-8 md:grid-cols-2 md:p-12">
           <div className="flex flex-col gap-6">
@@ -144,7 +213,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 4. Footer */}
+      {/* 5. Footer */}
       <footer className="mt-auto border-t border-espresso/10 bg-espresso text-cream">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12 sm:flex-row sm:justify-between">
           <div className="flex flex-col gap-2">
